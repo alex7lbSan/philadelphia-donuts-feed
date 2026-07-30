@@ -6,31 +6,27 @@
 
 const fs = require('fs/promises');
 const path = require('path');
-const sharp = require('sharp');
 
 const { buscarCatalogo, achatarProdutos, urlImagemOriginal, UA } = require('./src/catalogo');
 const { montarFeed } = require('./src/feed');
+const { padronizar, VERSAO } = require('./src/imagem');
 
 const BASE_URL = (process.env.FEED_BASE_URL || 'http://localhost:8080').replace(/\/+$/, '');
 const DIR_PUBLIC = path.join(__dirname, 'public');
 const DIR_IMAGENS = path.join(DIR_PUBLIC, 'imagens');
 
-// Meta exige JPEG ou PNG (WebP e recusado) e no minimo 500x500.
-// O MenuDino so serve WebP em ~600x600, entao convertemos e completamos
-// o quadrado com fundo branco ate 1024x1024.
-const LADO = 1024;
-
 function nomeArquivo(item, urlOriginal) {
   const carimbo = /_(\d{8,14})\.webp$/.exec(urlOriginal);
-  return `${item.id}${carimbo ? '_' + carimbo[1] : ''}.jpg`;
+  return `${item.id}${carimbo ? '_' + carimbo[1] : ''}_${VERSAO}.jpg`;
 }
 
-async function converterImagem(item, urlOriginal) {
+async function converterImagem(item, urlOriginal, modos) {
   const arquivo = nomeArquivo(item, urlOriginal);
   const destino = path.join(DIR_IMAGENS, arquivo);
 
   try {
     await fs.access(destino);
+    modos.cache = (modos.cache || 0) + 1;
     return arquivo; // ja convertida numa execucao anterior
   } catch {}
 
@@ -40,12 +36,9 @@ async function converterImagem(item, urlOriginal) {
     return null;
   }
 
-  const buf = Buffer.from(await res.arrayBuffer());
-  await sharp(buf)
-    .resize(LADO, LADO, { fit: 'contain', background: { r: 255, g: 255, b: 255 } })
-    .flatten({ background: { r: 255, g: 255, b: 255 } })
-    .jpeg({ quality: 88, mozjpeg: true })
-    .toFile(destino);
+  const { buf, modo } = await padronizar(Buffer.from(await res.arrayBuffer()));
+  await fs.writeFile(destino, buf);
+  modos[modo] = (modos[modo] || 0) + 1;
 
   return arquivo;
 }
@@ -71,6 +64,7 @@ async function main() {
 
   const produtos = [];
   const mantidas = new Set();
+  const modos = {};
 
   for (const item of itens) {
     const original = urlImagemOriginal(item);
@@ -78,7 +72,7 @@ async function main() {
       console.warn(`  sem foto, fora do feed: ${item.name}`);
       continue;
     }
-    const arquivo = await converterImagem(item, original);
+    const arquivo = await converterImagem(item, original, modos);
     if (!arquivo) continue;
 
     mantidas.add(arquivo);
@@ -90,6 +84,7 @@ async function main() {
   const geradoEm = new Date().toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo' });
   await fs.writeFile(path.join(DIR_PUBLIC, 'feed.xml'), montarFeed(produtos, geradoEm), 'utf8');
 
+  console.log('imagens:', JSON.stringify(modos));
   console.log(`\nfeed.xml gerado com ${produtos.length} produtos (${geradoEm})`);
   console.log(`URL do feed: ${BASE_URL}/feed.xml`);
 }

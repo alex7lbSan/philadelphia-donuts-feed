@@ -18,11 +18,33 @@ O site roda na plataforma MenuDino e o cardapio nao vem no HTML. O caminho usado
 
 Nao usa navegador headless.
 
-## Conversao das imagens
+## Padronizacao das imagens (`src/imagem.js`)
 
 A Meta recusa WebP e exige no minimo 500x500. O MenuDino serve apenas WebP em
-cerca de 600x600, entao cada foto e convertida para JPEG 1024x1024 com fundo
-branco (`sharp`) e publicada junto do feed.
+cerca de 600x600, com proporcoes entre 0.67 (vertical) e 1.78 (horizontal): 40
+das 54 fotos estao fora do quadrado. Todas saem daqui em JPEG 1024x1024.
+
+So converter para quadrado nao basta. Uma foto deitada vira uma tira no meio de
+um fundo branco e uma foto em pe vira uma coluna, que e o que fazia o catalogo
+parecer desalinhado. Por isso cada foto e classificada pelo brilho medio das
+quatro bordas e tratada de um jeito:
+
+- **Foto ambientada** (49 itens, os donuts): borda escura. E cortada para o
+  quadrado pela regiao de maior interesse visual (`sharp.strategy.attention`),
+  entao ocupa o quadro inteiro sem sobrar borda vazia.
+- **Produto em fundo branco** (5 itens, as bebidas): borda quase branca. A
+  moldura branca e removida e o produto e recentralizado ocupando 86% do
+  quadrado, o que deixa todas as bebidas no mesmo tamanho relativo.
+
+O recorte da moldura e calculado direto nos pixels em vez de usar o `trim` do
+sharp: varias fotos de bebida vem de banco de imagens com marca d'agua fraca na
+borda, e isso faz o `trim` desistir e devolver a imagem inteira. A regra aqui e
+que a linha ou coluna conta como fundo quando ate 2% dos pixels dela estao
+escuros, o que absorve a marca d'agua e o ruido de compressao.
+
+A constante `VERSAO` em `src/imagem.js` entra no nome do arquivo. Mudou a regra
+de tratamento, sobe a versao: isso invalida o cache e faz a Meta rebaixar as
+fotos antigas.
 
 ## Rodar localmente
 
