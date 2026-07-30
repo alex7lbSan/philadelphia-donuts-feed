@@ -1,0 +1,61 @@
+name: Gerar feed de produtos
+
+on:
+  schedule:
+    # 06:00 no horario de Brasilia (09:00 UTC), todo dia
+    - cron: '0 9 * * *'
+  workflow_dispatch:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  gerar:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      # Reaproveita os JPEGs ja convertidos. O nome do arquivo carrega o
+      # carimbo da foto original, entao foto trocada gera nome novo.
+      - name: Cache das imagens convertidas
+        uses: actions/cache@v4
+        with:
+          path: public/imagens
+          key: imagens-${{ github.run_id }}
+          restore-keys: imagens-
+
+      - name: Gerar feed.xml e imagens
+        env:
+          FEED_BASE_URL: ${{ vars.FEED_BASE_URL }}
+        run: node gerar.js
+
+      - uses: actions/configure-pages@v5
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: public
+
+  publicar:
+    needs: gerar
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
+    steps:
+      - id: deploy
+        uses: actions/deploy-pages@v4

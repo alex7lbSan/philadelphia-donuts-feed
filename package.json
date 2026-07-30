@@ -1,0 +1,12 @@
+{
+  "name": "philadelphia-donuts-feed-meta",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Gera feed de produtos do cardapio Philadelphia Donuts para o Gerenciador de Comercio da Meta",
+  "scripts": {
+    "gerar": "node gerar.js"
+  },
+  "dependencies": {
+    "sharp": "^0.34.5"
+  }
+}
