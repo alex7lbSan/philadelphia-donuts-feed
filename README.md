@@ -1,5 +1,9 @@
 # Feed de produtos - Philadelphia Donuts
 
+> Voltando ao projeto depois de um tempo? Comece pela pasta
+> [`Instruções/`](Instru%C3%A7%C3%B5es/LEIA-ME.md), que tem o passo a passo das
+> alteracoes comuns e o que fazer quando algo quebra.
+
 Gera um feed de produtos no formato da Meta (RSS 2.0 com namespace `g:`) a partir do
 cardapio de https://philadelphiadonuts.com.br/, para uso no Gerenciador de Comercio.
 
