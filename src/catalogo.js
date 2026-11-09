@@ -1,34 +1,17 @@
 // Extracao do catalogo do site MenuDino (Philadelphia Donuts).
 //
-// Como funciona:
-// 1. Um GET simples na home devolve o cookie `app-access-token` (JWT de app, 24h).
-// 2. Com esse token da para chamar a API de catalogo do MenuDino direto.
-//
+// O site busca o cardapio na propria rota /api/bff/catalog, sem token (mudou em nov/2026;
+// antes era preciso o cookie app-access-token da home, que deixou de existir).
 // Nao precisa de navegador headless.
 
 const SITE = 'https://philadelphiadonuts.com.br';
-const CATALOG_API = 'https://menudino-catalog.consumerapis.com/api/v1';
+const CATALOG_API = SITE + '/api/bff/catalog';
 const MERCHANT_ID = 'c60a7037-2faf-11ee-9964-0022483864db';
 const UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36';
 
-async function obterToken() {
-  const res = await fetch(SITE + '/', { headers: { 'User-Agent': UA } });
-  if (!res.ok) throw new Error(`Home respondeu ${res.status}`);
-
-  const cookies = typeof res.headers.getSetCookie === 'function'
-    ? res.headers.getSetCookie()
-    : [res.headers.get('set-cookie') || ''];
-
-  for (const c of cookies) {
-    const m = /(?:^|,\s*)app-access-token=([^;]+)/.exec(c);
-    if (m) return decodeURIComponent(m[1]);
-  }
-  throw new Error('Cookie app-access-token nao encontrado na resposta da home');
-}
-
-async function apiGet(url, token) {
+async function apiGet(url) {
   const res = await fetch(url, {
-    headers: { Authorization: 'Bearer ' + token, 'User-Agent': UA },
+    headers: { 'User-Agent': UA },
   });
   if (!res.ok) throw new Error(`${res.status} em ${url}`);
   return res.json();
@@ -36,18 +19,14 @@ async function apiGet(url, token) {
 
 // Retorna [{ categoria, itens: [...] }] apenas com o que esta ativo para venda online.
 async function buscarCatalogo() {
-  const token = await obterToken();
-
   const cats = await apiGet(
     `${CATALOG_API}/categories/${MERCHANT_ID}?OnlyActive=true&SellOnline=true`,
-    token,
   );
 
   const resultado = [];
   for (const cat of cats.items || []) {
     const dados = await apiGet(
       `${CATALOG_API}/items/${MERCHANT_ID}/${cat.id}/summary?SellOnline=true&SellLocal=false`,
-      token,
     );
     resultado.push({ categoria: cat.name, itens: dados.items || [] });
   }
@@ -82,7 +61,6 @@ module.exports = {
   SITE,
   MERCHANT_ID,
   UA,
-  obterToken,
   buscarCatalogo,
   achatarProdutos,
   linkDoProduto,
